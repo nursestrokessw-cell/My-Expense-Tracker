@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Expense Tracker 💚 บัญชีของฉัน</title>
+<title>My Expense Tracker 🐻 บัญชีของฉัน</title>
 <style>
   :root {
     --blue-deep: #2f8a5f;
@@ -591,7 +591,7 @@
 
   <div class="topbar">
     <div class="brand">
-      <div class="brand-emoji">💚</div>
+      <div class="brand-emoji">🐻</div>
       <div>
         <h1>My Expense Tracker</h1>
         <p>บัญชีรายรับ-รายจ่ายของฉัน 🐷</p>
@@ -804,7 +804,7 @@
 
   <div class="app-footer">
     <div id="sheetLink"></div>
-    <div style="margin-top:6px;">My Expense Tracker 💚 · ข้อมูลซิงก์กับ Google Sheets ผ่าน Apps Script</div>
+    <div style="margin-top:6px;">My Expense Tracker 🐻 · ข้อมูลซิงก์กับ Google Sheets ผ่าน Apps Script</div>
   </div>
 
 </div>
@@ -924,6 +924,7 @@
   const financeCalPrev = $('financeCalPrev');
   const financeCalNext = $('financeCalNext');
   const financeCategory = $('financeCategory');
+  const financeCategoryList = $('financeCategoryList');
   const financeAmount = $('financeAmount');
   const financeInstallment = $('financeInstallment');
   const financeNote = $('financeNote');
@@ -947,7 +948,6 @@
   const cancelDeleteBtn = $('cancelDeleteBtn');
   const confirmDeleteBtn = $('confirmDeleteBtn');
   const manageCategoryBtn = $('manageCategoryBtn');
-  const financeCategoryList = $('financeCategoryList');
   const categoryModal = $('categoryModal');
   const closeCategoryModalBtn = $('closeCategoryModalBtn');
   const categoryTypeTabs = $('categoryTypeTabs');
@@ -1039,8 +1039,16 @@
         body: JSON.stringify({ action, payload })
       });
     }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
+    const raw = await res.text();
+    let json;
+    try {
+      json = JSON.parse(raw);
+    } catch (parseErr) {
+      if (res.status === 405 || /<!DOCTYPE|<html/i.test(raw)) {
+        throw new Error('Google Apps Script ปฏิเสธคำขอ (HTTP ' + res.status + ') โปรดตรวจสอบการตั้งค่า Deploy: Execute as = Me, Who has access = Anyone แล้ว Deploy เวอร์ชันใหม่อีกครั้ง');
+      }
+      throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ' + res.status + ')');
+    }
     if (!json.ok) throw new Error(json.error || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ');
     return json.data;
   }
@@ -1137,7 +1145,11 @@
         if (!hay.includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    }).sort((a, b) => {
+      const byDate = (b.date || '').localeCompare(a.date || '');
+      if (byDate !== 0) return byDate;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
   }
 
   // ---------- Render ----------
@@ -1344,12 +1356,20 @@
     bindTxItemEvents(txList);
   }
 
+  function financeDateKey(item) {
+    const y = String(item.year || 0).padStart(4, '0');
+    const m = String(item.month || 0).padStart(2, '0');
+    const d = String(item.day || 0).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+
   function renderFinanceList() {
     if (!state.financeItems.length) {
       financeList.innerHTML = '<div class="empty-state"><div class="big">💳</div>ยังไม่มีรายการ Finance</div>';
       return;
     }
-    financeList.innerHTML = state.financeItems.map((item) =>
+    const sortedFinance = state.financeItems.slice().sort((a, b) => financeDateKey(b).localeCompare(financeDateKey(a)));
+    financeList.innerHTML = sortedFinance.map((item) =>
       '<div class="finance-card" data-id="' + escapeHtml(item.id) + '">' +
         '<div class="finance-card-head">' +
           '<div class="finance-card-name">🏷️ ' + escapeHtml(item.category || item.card || item.item || '-') + '</div>' +
