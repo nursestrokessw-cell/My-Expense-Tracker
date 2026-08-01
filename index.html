@@ -513,6 +513,21 @@
     .cal-day { min-height: 44px; }
     .status-pill span:not(.status-dot) { display: none; }
   }
+
+  /* ---------- Print / บันทึกเป็น PDF ---------- */
+  @media print {
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; }
+    .app-shell { max-width: 100%; padding: 0; }
+    .topbar-actions, .tab-bar, .toolbar, .form-panel, .tx-actions,
+    .deleteCatBtn, .editCatBtn, #toast-container, .modal-overlay, .app-footer {
+      display: none !important;
+    }
+    .page { display: block !important; }
+    .page + .page { margin-top: 24px; page-break-before: always; }
+    .panel { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+    .tx-item, .monthly-table-panel, tr { break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -532,6 +547,7 @@
         <span id="statusText">กำลังเชื่อมต่อ...</span>
       </div>
       <button class="icon-btn" id="refreshBtn" title="รีเฟรชข้อมูล">🔄</button>
+      <button class="icon-btn" id="printBtn" title="พิมพ์ / บันทึกเป็น PDF">🖨️</button>
     </div>
   </div>
 
@@ -731,6 +747,7 @@
   const statusPill = $('statusPill');
   const statusText = $('statusText');
   const refreshBtn = $('refreshBtn');
+  const printBtn = $('printBtn');
   const totalIncomeEl = $('totalIncome');
   const totalExpenseEl = $('totalExpense');
   const totalBalanceEl = $('totalBalance');
@@ -1389,6 +1406,8 @@
     });
   }
 
+  // บันทึกแบบ optimistic: อัปเดตหน้าจอทันทีจากข้อมูลในเครื่อง แล้วค่อยยิง API ไปเบื้องหลัง
+  // (ไม่ต้องรอ round-trip ไป Google Sheets ก่อนถึงจะเห็นผลลัพธ์ ทำให้รู้สึกเร็วขึ้นมาก)
   async function handleSave() {
     const payload = {
       id: state.editingId || undefined,
@@ -1402,33 +1421,46 @@
     if (!payload.category) return toast('กรุณาระบุหมวดหมู่', 'error');
     if (!payload.amount || payload.amount <= 0) return toast('กรุณาระบุจำนวนเงินให้ถูกต้อง', 'error');
 
-    saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ กำลังบันทึก...';
+    const isEdit = !!state.editingId;
+    const snapshot = state.transactions;
+    if (isEdit) {
+      state.transactions = state.transactions.map((t) =>
+        String(t.id) === String(state.editingId) ? Object.assign({}, t, payload) : t
+      );
+    } else {
+      state.transactions = [Object.assign({ id: 'tmp_' + Date.now(), createdAt: new Date().toISOString() }, payload)].concat(state.transactions);
+    }
+    saveToCache();
+    closeForm();
+    renderAll();
+    toast(isEdit ? 'อัปเดตรายการเรียบร้อย 🎉' : 'เพิ่มรายการเรียบร้อย 🎉', 'success');
+
     try {
-      if (state.editingId) {
-        await callApi('update', payload, 'POST');
-        toast('อัปเดตรายการเรียบร้อย 🎉', 'success');
-      } else {
-        await callApi('add', payload, 'POST');
-        toast('เพิ่มรายการเรียบร้อย 🎉', 'success');
-      }
-      closeForm();
-      await fetchList(false);
+      await callApi(isEdit ? 'update' : 'add', payload, 'POST');
+      fetchList(false); // ซิงก์เงียบ ๆ เบื้องหลังเพื่อดึง id จริงจากเซิร์ฟเวอร์ ไม่บล็อกหน้าจอ
     } catch (err) {
-      toast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = '💾 บันทึก';
+      state.transactions = snapshot;
+      saveToCache();
+      renderAll();
+      toast('บันทึกไม่สำเร็จ กู้คืนข้อมูลเดิมแล้ว: ' + err.message, 'error');
     }
   }
 
   async function handleDelete(id) {
+    const snapshot = state.transactions;
+    state.transactions = state.transactions.filter((t) => String(t.id) !== String(id));
+    saveToCache();
+    renderAll();
+    toast('ลบรายการเรียบร้อย 🗑️', 'success');
+
     try {
       await callApi('delete', { id }, 'POST');
-      toast('ลบรายการเรียบร้อย 🗑️', 'success');
-      await fetchList(false);
+      fetchList(false);
     } catch (err) {
-      toast('ลบไม่สำเร็จ: ' + err.message, 'error');
+      state.transactions = snapshot;
+      saveToCache();
+      renderAll();
+      toast('ลบไม่สำเร็จ กู้คืนข้อมูลเดิมแล้ว: ' + err.message, 'error');
     }
   }
 
@@ -1438,6 +1470,7 @@
   });
 
   refreshBtn.addEventListener('click', () => fetchList(true));
+  printBtn.addEventListener('click', () => window.print());
 
   typeFilterEl.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', () => {
