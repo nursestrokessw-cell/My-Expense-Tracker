@@ -637,10 +637,34 @@
   <div class="page" id="page-dashboard">
     <div class="panel monthly-table-panel income-table">
       <div class="monthly-table-title">
+        <h2>🐖 อ้วง อ้วง &amp; เงินเดือนอ้วน</h2>
+        <span class="monthly-table-badge">💰 รายรับหลัก</span>
+      </div>
+      <div id="monthlyIncomeHighlightTable"></div>
+    </div>
+
+    <div class="panel monthly-table-panel income-table">
+      <div class="monthly-table-title">
         <h2>🌿💰 รายรับแยกหมวดหมู่รายเดือน</h2>
         <span class="monthly-table-badge">🐷 เงินเข้า</span>
       </div>
       <div id="monthlyIncomeTable"></div>
+    </div>
+
+    <div class="panel monthly-table-panel expense-table">
+      <div class="monthly-table-title">
+        <h2>💳 บัตร</h2>
+        <span class="monthly-table-badge">🍪 เงินออก</span>
+      </div>
+      <div id="monthlyExpenseCardTable"></div>
+    </div>
+
+    <div class="panel monthly-table-panel expense-table">
+      <div class="monthly-table-title">
+        <h2>⛽ น้ำมัน</h2>
+        <span class="monthly-table-badge">🚗 เงินออก</span>
+      </div>
+      <div id="monthlyExpenseFuelTable"></div>
     </div>
 
     <div class="panel monthly-table-panel expense-table">
@@ -766,7 +790,10 @@
   const categoryList = $('categoryList');
   const saveBtn = $('saveBtn');
   const cancelFormBtn = $('cancelFormBtn');
+  const monthlyIncomeHighlightTable = $('monthlyIncomeHighlightTable');
   const monthlyIncomeTable = $('monthlyIncomeTable');
+  const monthlyExpenseCardTable = $('monthlyExpenseCardTable');
+  const monthlyExpenseFuelTable = $('monthlyExpenseFuelTable');
   const monthlyExpenseTable = $('monthlyExpenseTable');
   const txList = $('txList');
   const listTitle = $('listTitle');
@@ -1014,10 +1041,18 @@
   }
 
   // ---------- Dashboard ----------
+  // หมวดหมู่ที่ดึงออกมาแสดงเป็นตารางเฉพาะของตัวเอง (ต้องตรงกับชื่อหมวดหมู่ที่บันทึกไว้เป๊ะๆ)
+  const INCOME_HIGHLIGHT_CATEGORIES = ['อ้วง อ้วง', 'เงินเดือนอ้วน'];
+  const EXPENSE_CARD_CATEGORIES = ['บัตร'];
+  const EXPENSE_FUEL_CATEGORIES = ['น้ำมัน'];
+
   function renderDashboard() {
     const months = getRecentMonths(6);
-    renderMonthlyCategoryTable('รายรับ', monthlyIncomeTable, months);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseTable, months);
+    renderMonthlyCategoryTable('รายรับ', monthlyIncomeHighlightTable, months, INCOME_HIGHLIGHT_CATEGORIES, null);
+    renderMonthlyCategoryTable('รายรับ', monthlyIncomeTable, months, null, INCOME_HIGHLIGHT_CATEGORIES);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseCardTable, months, EXPENSE_CARD_CATEGORIES, null);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseFuelTable, months, EXPENSE_FUEL_CATEGORIES, null);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseTable, months, null, EXPENSE_CARD_CATEGORIES.concat(EXPENSE_FUEL_CATEGORIES));
   }
 
   // สร้างแกนเวลา 6 เดือนต่อเนื่อง โดยยึดเดือนล่าสุดที่มีข้อมูล
@@ -1039,10 +1074,15 @@
   }
 
   // ตารางสรุปหมวดหมู่เป็นรายเดือน โดยแสดง 6 เดือนล่าสุดให้สัดส่วนอ่านง่าย
-  function renderMonthlyCategoryTable(type, container, months) {
+  // includeCategories: ถ้าระบุ จะแสดงเฉพาะหมวดหมู่ในลิสต์นี้ / excludeCategories: ถ้าระบุ จะไม่แสดงหมวดหมู่ในลิสต์นี้
+  function renderMonthlyCategoryTable(type, container, months, includeCategories, excludeCategories) {
     const rows = state.transactions.filter((t) => {
       const month = (t.date || '').slice(0, 7);
-      return t.type === type && months.includes(month);
+      if (t.type !== type || !months.includes(month)) return false;
+      const category = t.category || 'ไม่ระบุหมวดหมู่';
+      if (includeCategories && !includeCategories.includes(category)) return false;
+      if (excludeCategories && excludeCategories.includes(category)) return false;
+      return true;
     });
     if (!rows.length || !months.length) {
       const icon = type === 'รายรับ' ? '🌱' : '🧺';
