@@ -635,6 +635,15 @@
 
   <!-- ============ หน้า Dashboard ============ -->
   <div class="page" id="page-dashboard">
+    <div class="panel">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <select id="dashYearFilter"></select>
+          <select id="dashCategoryFilter"><option value="all">🏷️ ทุกหมวดหมู่</option></select>
+        </div>
+      </div>
+    </div>
+
     <div class="panel monthly-table-panel income-table">
       <div class="monthly-table-title">
         <h2>🐖 อ้วง อ้วง &amp; เงินเดือนอ้วน</h2>
@@ -761,6 +770,8 @@
     calendarYear: Number(todayIsoStr.slice(0, 4)),
     calendarMonth: Number(todayIsoStr.slice(5, 7)),
     selectedDate: todayIsoStr,
+    dashYear: Number(todayIsoStr.slice(0, 4)),
+    dashCategory: 'all',
     categories: { 'รายรับ': [], 'รายจ่าย': [] },
     categoryManagerType: 'รายรับ',
     loading: false
@@ -790,6 +801,8 @@
   const categoryList = $('categoryList');
   const saveBtn = $('saveBtn');
   const cancelFormBtn = $('cancelFormBtn');
+  const dashYearFilter = $('dashYearFilter');
+  const dashCategoryFilter = $('dashCategoryFilter');
   const monthlyIncomeHighlightTable = $('monthlyIncomeHighlightTable');
   const monthlyIncomeTable = $('monthlyIncomeTable');
   const monthlyExpenseCardTable = $('monthlyExpenseCardTable');
@@ -1005,8 +1018,27 @@
     renderCategoryDatalist();
     renderSummary(getMonthScoped());
     renderList(getFiltered());
+    renderDashFilterOptions();
     renderDashboard();
     renderCalendar();
+  }
+
+  // ตัวเลือกปีและหมวดหมู่สำหรับกรองหน้า Dashboard
+  function renderDashFilterOptions() {
+    const years = Array.from(new Set(state.transactions.map((t) => Number((t.date || '').slice(0, 4))).filter(Boolean)))
+      .sort((a, b) => b - a);
+    if (!years.length) years.push(Number(todayIsoStr.slice(0, 4)));
+    const currentYear = years.includes(state.dashYear) ? state.dashYear : years[0];
+    dashYearFilter.innerHTML = years.map((y) => '<option value="' + y + '">📅 ปี ' + (y + 543) + '</option>').join('');
+    dashYearFilter.value = String(currentYear);
+    state.dashYear = currentYear;
+
+    const cats = Array.from(new Set(state.transactions.map((t) => t.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th'));
+    const currentCat = state.dashCategory;
+    dashCategoryFilter.innerHTML = '<option value="all">🏷️ ทุกหมวดหมู่</option>' +
+      cats.map((c) => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
+    dashCategoryFilter.value = cats.includes(currentCat) || currentCat === 'all' ? currentCat : 'all';
+    state.dashCategory = dashCategoryFilter.value;
   }
 
   function renderMonthOptions() {
@@ -1047,41 +1079,31 @@
   const EXPENSE_FUEL_CATEGORIES = ['น้ำมัน'];
 
   function renderDashboard() {
-    const months = getRecentMonths(6);
-    renderMonthlyCategoryTable('รายรับ', monthlyIncomeHighlightTable, months, INCOME_HIGHLIGHT_CATEGORIES, null);
-    renderMonthlyCategoryTable('รายรับ', monthlyIncomeTable, months, null, INCOME_HIGHLIGHT_CATEGORIES);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseCardTable, months, EXPENSE_CARD_CATEGORIES, null);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseFuelTable, months, EXPENSE_FUEL_CATEGORIES, null);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseTable, months, null, EXPENSE_CARD_CATEGORIES.concat(EXPENSE_FUEL_CATEGORIES));
+    const months = getMonthsForYear(state.dashYear);
+    const categoryFilter = state.dashCategory === 'all' ? null : state.dashCategory;
+    renderMonthlyCategoryTable('รายรับ', monthlyIncomeHighlightTable, months, INCOME_HIGHLIGHT_CATEGORIES, null, categoryFilter);
+    renderMonthlyCategoryTable('รายรับ', monthlyIncomeTable, months, null, INCOME_HIGHLIGHT_CATEGORIES, categoryFilter);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseCardTable, months, EXPENSE_CARD_CATEGORIES, null, categoryFilter);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseFuelTable, months, EXPENSE_FUEL_CATEGORIES, null, categoryFilter);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseTable, months, null, EXPENSE_CARD_CATEGORIES.concat(EXPENSE_FUEL_CATEGORIES), categoryFilter);
   }
 
-  // สร้างแกนเวลา 6 เดือนต่อเนื่อง โดยยึดเดือนล่าสุดที่มีข้อมูล
-  function getRecentMonths(count) {
-    const latestMonth = state.transactions
-      .map((t) => (t.date || '').slice(0, 7))
-      .filter(Boolean)
-      .sort()
-      .pop();
-    if (!latestMonth) return [];
-    const [latestYear, latestMonthNumber] = latestMonth.split('-').map(Number);
-    const latestIndex = latestYear * 12 + latestMonthNumber - 1;
-    return Array.from({ length: count }, (_, index) => {
-      const monthIndex = latestIndex - (count - 1 - index);
-      const year = Math.floor(monthIndex / 12);
-      const month = (monthIndex % 12) + 1;
-      return year + '-' + String(month).padStart(2, '0');
-    });
+  // สร้างแกนเวลา 12 เดือน (ม.ค.-ธ.ค.) ของปีที่เลือก
+  function getMonthsForYear(year) {
+    return Array.from({ length: 12 }, (_, index) => year + '-' + String(index + 1).padStart(2, '0'));
   }
 
-  // ตารางสรุปหมวดหมู่เป็นรายเดือน โดยแสดง 6 เดือนล่าสุดให้สัดส่วนอ่านง่าย
+  // ตารางสรุปหมวดหมู่เป็นรายเดือน แสดงเต็มปี 12 เดือน
   // includeCategories: ถ้าระบุ จะแสดงเฉพาะหมวดหมู่ในลิสต์นี้ / excludeCategories: ถ้าระบุ จะไม่แสดงหมวดหมู่ในลิสต์นี้
-  function renderMonthlyCategoryTable(type, container, months, includeCategories, excludeCategories) {
+  // categoryFilter: ถ้าระบุ (มาจากตัวกรองหมวดหมู่บนหน้า Dashboard) จะแสดงเฉพาะหมวดหมู่นั้นหมวดเดียว
+  function renderMonthlyCategoryTable(type, container, months, includeCategories, excludeCategories, categoryFilter) {
     const rows = state.transactions.filter((t) => {
       const month = (t.date || '').slice(0, 7);
       if (t.type !== type || !months.includes(month)) return false;
       const category = t.category || 'ไม่ระบุหมวดหมู่';
       if (includeCategories && !includeCategories.includes(category)) return false;
       if (excludeCategories && excludeCategories.includes(category)) return false;
+      if (categoryFilter && category !== categoryFilter) return false;
       return true;
     });
     if (!rows.length || !months.length) {
@@ -1111,8 +1133,8 @@
     let grandTotal = 0;
 
     const headerCells = months.map((m) => {
-      const [y, mo] = m.split('-').map(Number);
-      return '<th>🗓️ ' + THAI_MONTHS[mo - 1] + ' ' + String(y + 543).slice(-2) + '</th>';
+      const mo = Number(m.split('-')[1]);
+      return '<th>🗓️ ' + THAI_MONTHS[mo - 1] + '</th>';
     }).join('');
 
     const bodyRows = categories.map((cat, index) => {
@@ -1143,7 +1165,7 @@
         '<tfoot><tr><td class="category-cell">🌸 รวมทั้งหมด</td>' + footerCells + '<td class="amount-cell">' + formatCurrency(grandTotal) + '</td></tr></tfoot>' +
       '</table>' +
     '</div>' +
-    '<div class="monthly-table-note">แสดงข้อมูล 6 เดือนล่าสุด · เลื่อนตารางด้านข้างได้บนหน้าจอเล็ก 🐾</div>';
+    '<div class="monthly-table-note">แสดงข้อมูลปี พ.ศ. ' + (Number(months[0].split('-')[0]) + 543) + ' ทั้ง 12 เดือน · เลื่อนตารางด้านข้างได้บนหน้าจอเล็ก 🐾</div>';
   }
 
   // ---------- Transaction item (shared by list + calendar day panel) ----------
@@ -1526,6 +1548,16 @@
     state.monthFilter = monthFilterEl.value;
     renderSummary(getMonthScoped());
     renderList(getFiltered());
+    renderDashboard();
+  });
+
+  dashYearFilter.addEventListener('change', () => {
+    state.dashYear = Number(dashYearFilter.value);
+    renderDashboard();
+  });
+
+  dashCategoryFilter.addEventListener('change', () => {
+    state.dashCategory = dashCategoryFilter.value;
     renderDashboard();
   });
 
