@@ -289,15 +289,16 @@
   .expense-table .monthly-table-badge { color: var(--expense); background: var(--expense-bg); }
   .monthly-table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .monthly-table {
-    width: 100%; min-width: 760px;
+    width: 100%; table-layout: fixed;
     border-collapse: separate; border-spacing: 0;
-    background: #fff; font-size: 12.5px;
+    background: #fff; font-size: 10px;
   }
   .monthly-table th, .monthly-table td {
-    padding: 11px 10px;
+    padding: 5px 3px;
     border-right: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
-    text-align: center; vertical-align: middle; white-space: nowrap;
+    text-align: center; vertical-align: middle;
+    white-space: normal; overflow-wrap: break-word; word-break: break-word;
   }
   .monthly-table th:last-child, .monthly-table td:last-child { border-right: none; }
   .monthly-table tbody tr:last-child td, .monthly-table tfoot tr:last-child td { border-bottom: none; }
@@ -306,10 +307,10 @@
     position: sticky; top: 0; z-index: 1;
   }
   .monthly-table .category-cell {
-    min-width: 150px; text-align: left; font-weight: 700;
+    width: 17%; text-align: left; font-weight: 700;
     color: var(--text-main); background: #fbfefd;
   }
-  .monthly-table .amount-cell { min-width: 100px; font-variant-numeric: tabular-nums; }
+  .monthly-table .amount-cell { font-variant-numeric: tabular-nums; }
   .income-table .monthly-table tbody .amount-cell:not(.zero) { color: var(--income); font-weight: 700; }
   .expense-table .monthly-table tbody .amount-cell:not(.zero) { color: var(--expense); font-weight: 700; }
   .monthly-table .zero { color: #b7c1ba; }
@@ -500,8 +501,8 @@
     .cal-day .num { font-size: 10.5px; }
     .cal-day .amt-line { font-size: 8.5px; }
     .monthly-table-title { align-items: flex-start; }
-    .monthly-table { min-width: 700px; }
-    .monthly-table th, .monthly-table td { padding: 9px 8px; }
+    .monthly-table { font-size: 8px; }
+    .monthly-table th, .monthly-table td { padding: 3px 2px; }
     .tx-item { flex-wrap: wrap; }
     .modal { padding: 18px; }
   }
@@ -615,6 +616,10 @@
           <label>🏷️ หมวดหมู่</label>
           <input type="text" id="fCategory" list="categoryList" placeholder="เช่น เงินเดือน, ค่าน้ำมัน...">
           <datalist id="categoryList"></datalist>
+        </div>
+        <div class="field full" id="fInstallmentField" style="display:none;">
+          <label>🧾 งวดที่ (ถ้ามี)</label>
+          <input type="text" id="fInstallment" placeholder="เช่น 1/10">
         </div>
         <div class="field full">
           <label>📝 หมายเหตุ (ถ้ามี)</label>
@@ -797,6 +802,8 @@
   const fDate = $('fDate');
   const fAmount = $('fAmount');
   const fCategory = $('fCategory');
+  const fInstallmentField = $('fInstallmentField');
+  const fInstallment = $('fInstallment');
   const fNote = $('fNote');
   const categoryList = $('categoryList');
   const saveBtn = $('saveBtn');
@@ -859,6 +866,11 @@
       return (Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)) + 'k';
     }
     return String(Math.round(num));
+  }
+
+  // ตัวเลขล้วน ไม่มีสัญลักษณ์สกุลเงิน สำหรับตารางที่ต้องยัด 12 เดือนในหน้าเดียว
+  function formatTableAmount(n) {
+    return Math.round(Number(n) || 0).toLocaleString('th-TH');
   }
 
   function formatThaiDate(iso) {
@@ -1144,28 +1156,28 @@
         const amt = data[m] || 0;
         rowTotal += amt;
         monthTotals[m] += amt;
-        return '<td class="amount-cell' + (amt ? '' : ' zero') + '">' + (amt ? formatCurrency(amt) : '—') + '</td>';
+        return '<td class="amount-cell' + (amt ? '' : ' zero') + '">' + (amt ? formatTableAmount(amt) : '—') + '</td>';
       }).join('');
       grandTotal += rowTotal;
       return '<tr>' +
         '<td class="category-cell">' + categoryIcons[index % categoryIcons.length] + ' ' + escapeHtml(cat) + '</td>' +
         amountCells +
-        '<td class="amount-cell row-total">' + formatCurrency(rowTotal) + '</td>' +
+        '<td class="amount-cell row-total">' + formatTableAmount(rowTotal) + '</td>' +
       '</tr>';
     }).join('');
 
     const footerCells = months.map((m) =>
-      '<td class="amount-cell">' + formatCurrency(monthTotals[m]) + '</td>'
+      '<td class="amount-cell">' + formatTableAmount(monthTotals[m]) + '</td>'
     ).join('');
 
     container.innerHTML = '<div class="monthly-table-scroll">' +
       '<table class="monthly-table">' +
         '<thead><tr><th class="category-cell">🏷️ หมวดหมู่</th>' + headerCells + '<th>✨ รวม</th></tr></thead>' +
         '<tbody>' + bodyRows + '</tbody>' +
-        '<tfoot><tr><td class="category-cell">🌸 รวมทั้งหมด</td>' + footerCells + '<td class="amount-cell">' + formatCurrency(grandTotal) + '</td></tr></tfoot>' +
+        '<tfoot><tr><td class="category-cell">🌸 รวมทั้งหมด</td>' + footerCells + '<td class="amount-cell">' + formatTableAmount(grandTotal) + '</td></tr></tfoot>' +
       '</table>' +
     '</div>' +
-    '<div class="monthly-table-note">แสดงข้อมูลปี พ.ศ. ' + (Number(months[0].split('-')[0]) + 543) + ' ทั้ง 12 เดือน · เลื่อนตารางด้านข้างได้บนหน้าจอเล็ก 🐾</div>';
+    '<div class="monthly-table-note">แสดงข้อมูลปี พ.ศ. ' + (Number(months[0].split('-')[0]) + 543) + ' ทั้ง 12 เดือน ในหน้าเดียว · ตัวเลขในตารางมีหน่วยเป็นบาท 🐾</div>';
   }
 
   // ---------- Transaction item (shared by list + calendar day panel) ----------
@@ -1177,7 +1189,7 @@
       '<div class="tx-emoji">' + emoji + '</div>' +
       '<div class="tx-info">' +
         '<div class="cat">' + escapeHtml(t.category) + '</div>' +
-        '<div class="meta">📅 ' + formatThaiDate(t.date) + (t.note ? ' · <span class="note">' + escapeHtml(t.note) + '</span>' : '') + '</div>' +
+        '<div class="meta">📅 ' + formatThaiDate(t.date) + (t.installment ? ' · 🧾 งวด ' + escapeHtml(t.installment) : '') + (t.note ? ' · <span class="note">' + escapeHtml(t.note) + '</span>' : '') + '</div>' +
       '</div>' +
       '<div class="tx-amount">' + sign + formatCurrency(t.amount) + '</div>' +
       '<div class="tx-actions">' +
@@ -1433,6 +1445,7 @@
     fDate.value = presetDate || todayISO();
     fAmount.value = '';
     fCategory.value = '';
+    fInstallment.value = '';
     fNote.value = '';
     formPanel.classList.add('open');
     addToggleBtn.textContent = '➖ ซ่อนฟอร์ม';
@@ -1449,6 +1462,7 @@
     fDate.value = tx.date;
     fAmount.value = tx.amount;
     fCategory.value = tx.category;
+    fInstallment.value = tx.installment || '';
     fNote.value = tx.note || '';
     formPanel.classList.add('open');
     addToggleBtn.textContent = '➖ ซ่อนฟอร์ม';
@@ -1466,6 +1480,7 @@
     typeToggle.querySelectorAll('button').forEach((b) => {
       b.classList.toggle('active', b.dataset.type === type);
     });
+    fInstallmentField.style.display = type === 'รายจ่าย' ? '' : 'none';
   }
 
   // บันทึกแบบ optimistic: อัปเดตหน้าจอทันทีจากข้อมูลในเครื่อง แล้วค่อยยิง API ไปเบื้องหลัง
@@ -1477,6 +1492,7 @@
       type: formType,
       category: fCategory.value.trim(),
       amount: parseFloat(fAmount.value),
+      installment: formType === 'รายจ่าย' ? fInstallment.value.trim() : '',
       note: fNote.value.trim()
     };
     if (!payload.date) return toast('กรุณาระบุวันที่', 'error');
