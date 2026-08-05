@@ -667,22 +667,6 @@
 
     <div class="panel monthly-table-panel expense-table">
       <div class="monthly-table-title">
-        <h2>💳 บัตร</h2>
-        <span class="monthly-table-badge">🍪 เงินออก</span>
-      </div>
-      <div id="monthlyExpenseCardTable"></div>
-    </div>
-
-    <div class="panel monthly-table-panel expense-table">
-      <div class="monthly-table-title">
-        <h2>⛽ น้ำมัน</h2>
-        <span class="monthly-table-badge">🚗 เงินออก</span>
-      </div>
-      <div id="monthlyExpenseFuelTable"></div>
-    </div>
-
-    <div class="panel monthly-table-panel expense-table">
-      <div class="monthly-table-title">
         <h2>🧸💸 รายจ่ายแยกหมวดหมู่รายเดือน</h2>
         <span class="monthly-table-badge">🍪 เงินออก</span>
       </div>
@@ -812,8 +796,6 @@
   const dashCategoryFilter = $('dashCategoryFilter');
   const monthlyIncomeHighlightTable = $('monthlyIncomeHighlightTable');
   const monthlyIncomeTable = $('monthlyIncomeTable');
-  const monthlyExpenseCardTable = $('monthlyExpenseCardTable');
-  const monthlyExpenseFuelTable = $('monthlyExpenseFuelTable');
   const monthlyExpenseTable = $('monthlyExpenseTable');
   const txList = $('txList');
   const listTitle = $('listTitle');
@@ -1087,17 +1069,13 @@
   // ---------- Dashboard ----------
   // หมวดหมู่ที่ดึงออกมาแสดงเป็นตารางเฉพาะของตัวเอง (ต้องตรงกับชื่อหมวดหมู่ที่บันทึกไว้เป๊ะๆ)
   const INCOME_HIGHLIGHT_CATEGORIES = ['อ้วง อ้วง', 'เงินเดือนอ้วน'];
-  const EXPENSE_CARD_CATEGORIES = ['บัตร'];
-  const EXPENSE_FUEL_CATEGORIES = ['น้ำมัน'];
 
   function renderDashboard() {
     const months = getMonthsForYear(state.dashYear);
     const categoryFilter = state.dashCategory === 'all' ? null : state.dashCategory;
     renderMonthlyCategoryTable('รายรับ', monthlyIncomeHighlightTable, months, INCOME_HIGHLIGHT_CATEGORIES, null, categoryFilter);
     renderMonthlyCategoryTable('รายรับ', monthlyIncomeTable, months, null, INCOME_HIGHLIGHT_CATEGORIES, categoryFilter);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseCardTable, months, EXPENSE_CARD_CATEGORIES, null, categoryFilter);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseFuelTable, months, EXPENSE_FUEL_CATEGORIES, null, categoryFilter);
-    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseTable, months, null, EXPENSE_CARD_CATEGORIES.concat(EXPENSE_FUEL_CATEGORIES), categoryFilter);
+    renderMonthlyCategoryTable('รายจ่าย', monthlyExpenseTable, months, null, null, categoryFilter);
   }
 
   // สร้างแกนเวลา 12 เดือน (ม.ค.-ธ.ค.) ของปีที่เลือก
